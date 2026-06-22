@@ -1,32 +1,108 @@
-const Express = require('express');
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Events, PermissionsBitField } = require('discord.js');
-require('dotenv').config();
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
-const expressApp = Express();
-const port = process.env.PORT || 3000;
-
-// --- Diagnostic: ตรวจสอบตัวแปรระบบ ---
-console.log('--- เริ่มการตรวจสอบ Diagnostic (Diagnostics) ---');
-console.log(`- เช็ค DISCORD_BOT_TOKEN: ${process.env.DISCORD_BOT_TOKEN ? 'พบ ✅ (มีความยาว)' : 'ไม่พบ ❌ (กรุณาใส่ใน Environment ของ Render)'}`);
-console.log(`- เช็ค GOOGLE_SCRIPT_URL: ${process.env.GOOGLE_SCRIPT_URL ? 'พบ ✅ (มีความยาว)' : 'ไม่พบ ❌ (กรุณาใส่ใน Environment ของ Render)'}`);
-console.log(`- เช็ค GUILD_WEB_URL: ${process.env.GUILD_WEB_URL ? 'พบ ✅ (มีความยาว)' : 'ไม่พบ ❌ (กรุณาใส่ใน Environment ของ Render)'}`);
-console.log('--- จบการตรวจสอบ ---');
+// ⚙️ ส่วนตั้งค่าเริ่มต้นสำหรับการเชื่อมต่อระบบกิลด์ BELLONA ⚔️
+const DISCORD_BOT_TOKEN = "ใส่_TOKEN_บอทดีสคอร์ดของคุณตรงนี้";
+const GOOGLE_SCRIPT_URL = "ใส่_WEB_APP_URL_ของ_Google_Apps_Script_ตรงนี้";
+const GUILD_WEB_URL = "ใส่_URL_หน้าเว็บ_Vercel_หรือ_Netlify_ของคุณตรงนี้";
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
 });
 
-client.once(Events.ClientReady, (c) => {
-  console.log(`✅ บอทกิลด์ BELLONA ออนไลน์พร้อมลุยในชื่อ: ${c.user.tag}`);
+client.once('ready', () => {
+  console.log(`🤖 บอทกิลด์ BELLONA ออนไลน์พร้อมศึกแล้วในชื่อ: ${client.user.tag}`);
 });
 
-expressApp.get('/', (req, res) => {
-  res.send('⚔️ บอท GVG กิลด์ BELLONA ทำงานอยู่ ⚔️');
-});
+// 📌 1. ระบบรับฟังคำสั่งสร้าง "โพสต์สำหรับรายงานตัววอร์ประจำวัน"
+client.on('messageCreate', async (message) => {
+  if (message.author.bot) return;
 
-client.login(process.env.DISCORD_BOT_TOKEN);
+  const content = message.content.trim();
 
-expressApp.listen(port, () => {
-  console.log(`📡 เว็บเซิร์ฟเวอร์เปิดใช้งานที่พอร์ต: ${port}`);
-});
+  // พิมพ์คำสั่ง !gvgpost เพื่อสร้างกล่องปุ่มกดรายงานตัว
+  if (content === '!gvgpost') {
+    // 1.1 สร้าง Embed แบนเนอร์แสดงรายละเอียดโพสต์
+    const embed = new EmbedBuilder()
+      .setColor('#d4af37') // สีทองธีมกิลด์ Bellona
+      .setTitle('⚔️ BELLONA GVG ULTIMATE SUITE ⚔️')
+      .setDescription(
+        '⚔️ **เปิดรายงานตัวเข้าร่วมกิลด์วอร์วันนี้** ⚔\n\n' +
+        'กรุณากดคลิกปุ่มด้านล่างเพื่อทำการเช็คชื่อของตนเองทันที ข้อมูลจะส่งตรงเข้าสู่ Google Sheet และนำขึ้นหน้าเว็บวางแผนแบบเรียลไทม์ครับ!'
+      )
+      .addFields(
+        { name: '🟢 มาร่วมรบ', value: 'กดเมื่อพร้อมลุยสงครามกิลด์วอร์วันนี้', inline: true },
+        { name: '🟠 ขอลาหยุด', value: 'กดเมื่อติดภารกิจจำเป็น ไม่สามารถมาได้', inline: true }
+      )
+      .setFooter({ text: 'กิลด์ BELLONA EST. 2024 - ระบบรายงานตัวออโต้' })
+      .setTimestamp();
 
+    // 1.2 สร้างปุ่ม 3 ปุ่มสีสันชัดเจน และ 1 ปุ่มลิงก์เชื่อมต่อหน้าเว็บ
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('gvg_present')
+        .setLabel('🟢 มาร่วมรบ')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('gvg_leave')
+        .setLabel('🟠 ขอลาหยุด')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('gvg_absent')
+        .setLabel('🔴 ขาดวอร์')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setLabel('🌐 เปิดหน้าวางแผนกิลด์')
+        .setURL(GUILD_WEB_URL)
+        .setStyle(ButtonStyle.Link)
+    );
+
+    await message.channel.send({ embeds: [embed], components: [row] });
+    await message.delete(); // ลบคำสั่งพิมพ์ !gvgpost ออกเพื่อไม่ให้เกะกะแชท
+  }
+
+  // 📌 2. ระบบคำสั่งพิมพ์ "รายงานตัวแทนผู้อื่น" (มาแทน / ลาแทน / ขาดแทน)
+  if (content.startsWith('!มาแทน') || content.startsWith('!ลาแทน') || content.startsWith('!ขาดแทน')) {
+    const args = content.split(' ');
+    const command = args[0];
+    const charName = args.slice(1).join(' '); // รวมชื่อตัวละครที่เว้นวรรค
+
+    if (!charName) {
+      return message.reply(`⚠️ **วิธีใช้คำสั่ง:** พิมพ์ \`${command} [ชื่อตัวละคร]\` เช่น \`!มาแทน Marlochamp\``);
+    }
+
+    let statusText = 'มา';
+    let statusEmoji = '🟢 มาร่วมรบ';
+    if (command === '!ลาแทน') {
+      statusText = 'ลา';
+      statusEmoji = '🟠 ขอลาพัก';
+    } else if (command === '!ขาดแทน') {
+      statusText = 'ขาด';
+      statusEmoji = '🔴 ขาดวอร์';
+    }
+
+    const tempMsg = await message.reply(`📡 กำลังบันทึกข้อมูลแทนคุณ **"${charName}"**...`);
+
+    try {
+      // ส่งข้อมูลเข้าสะพานเชื่อม Google Apps Script
+      const response = await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ charName, status: statusText })
+      });
+      const result = await response.json();
+
+      if (result.status === 'success') {
+        await tempMsg.edit(`👑 **ทำรายการแทนสำเร็จ:** ปรับปรุงสถานะล่าสุดของคุณ **"${charName}"** เป็น [**${statusEmoji}**] และบวกประวัติลงชีทกิลด์ให้แล้วครับ!`);
+      } else {
+        await tempMsg.edit(`❌ ไม่สามารถทำรายการได้เนื่องจาก: ${result.message}`);
+      }
+    } catch (err) {
+      console.error(err);
+      await tempMsg.edit(`❌ เกิดข้อผิดพลาดทางเครือข่าย ไม่สามารถเชื่อมต่อไปยังกูเกิ้ลชีทได้ในขณะนี้!`);
+    }
+  }
+})
