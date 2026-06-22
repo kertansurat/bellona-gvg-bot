@@ -105,4 +105,54 @@ client.on('messageCreate', async (message) => {
       await tempMsg.edit(`❌ เกิดข้อผิดพลาดทางเครือข่าย ไม่สามารถเชื่อมต่อไปยังกูเกิ้ลชีทได้ในขณะนี้!`);
     }
   }
+});
+
+// 📌 3. ระบบจับสัญญาณการกดคลิกปุ่มของสมาชิก
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isButton()) return;
+
+  // ตรวจสอบ Custom ID ของปุ่มกด
+  if (['gvg_present', 'gvg_leave', 'gvg_absent'].includes(interaction.customId)) {
+    // ดึงชื่อเล่นในเซิร์ฟเวอร์ดิสคอร์ด (Nickname) หากไม่มีให้ดึงชื่อโปรไฟล์จริงแทน
+    const charName = interaction.member.nickname || interaction.member.user.displayName || interaction.user.username;
+    
+    let statusText = 'มา';
+    let statusEmoji = '🟢 มาร่วมรบ';
+    
+    if (interaction.customId === 'gvg_leave') {
+      statusText = 'ลา';
+      statusEmoji = '🟠 ขอลาหยุด';
+    } else if (interaction.customId === 'gvg_absent') {
+      statusText = 'ขาด';
+      statusEmoji = '🔴 ขาดวอร์';
+    }
+
+    // บังคับตอบกลับชั่วคราวแบบ "ephemeral" (เห็นคนเดียว) เพื่อให้ไม่เป็นการรบกวนคนอื่น
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      // ส่งข้อมูลไปยัง Google Sheets API ของคุณ
+      const response = await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ charName, status: statusText })
+      });
+      const result = await response.json();
+
+      if (result.status === 'success') {
+        await interaction.editReply({
+          content: `🎉 **บันทึกสำเร็จ:** คุณทำการรายงานตัวในชื่อ **"${charName}"** ด้วยสถานะ [**${statusEmoji}**] และอัปเดตสถิติสะสมลง Google Sheet เรียบร้อยแล้วครับ!`
+        });
+      } else {
+        await interaction.editReply({
+          content: `❌ บันทึกไม่สำเร็จเนื่องจาก: ${result.message}`
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      await interaction.editReply({
+        content: `❌ เชื่อมต่อ Google Sheet ล้มเหลว กรุณารอระบบพาสสิทธิ์ประมวลผลสักครู่!`
+      });
+    }
+  }
 })
