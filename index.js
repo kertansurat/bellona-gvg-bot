@@ -1,4 +1,3 @@
-// --- โค้ด index.js ฉบับสมบูรณ์ (ตรวจสอบวงเล็บปิดครบ 100%) ---
 const Express = require('express');
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Events, PermissionsBitField } = require('discord.js');
 require('dotenv').config();
@@ -31,4 +30,3 @@ expressApp.listen(port, () => {
   console.log(`📡 เว็บเซิร์ฟเวอร์เปิดใช้งานที่พอร์ต: ${port}`);
 });
 
-// --- สิ้นสุดไฟล์ (ตรวจสอบวงเล็บปิดครบถ้วน) ---
