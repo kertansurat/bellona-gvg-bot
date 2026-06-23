@@ -1,6 +1,6 @@
 {
-  "name": "bellona-gvg-bot",
-  "version": "2.0.0",
+  "name": "rooc-gvg-bot",
+  "version": "1.0.0",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
