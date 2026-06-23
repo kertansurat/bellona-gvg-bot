@@ -13,7 +13,6 @@ const {
 
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
 const API = process.env.GOOGLE_SCRIPT_URL;
-const ADMIN_ROLE = process.env.ADMIN_ROLE;
 
 const client = new Client({
   intents: [
@@ -24,10 +23,22 @@ const client = new Client({
 });
 
 // =========================
+// ROOC JOB LIST
+// =========================
+const jobs = [
+  "Knight","Lord Knight","Crusader","Paladin",
+  "Wizard","High Wizard","Sage","Professor",
+  "Sniper","Clown","Bard",
+  "Champion","High Priest","Monk",
+  "Whitesmith","Creator",
+  "Assassin Cross","Stalker"
+];
+
+// =========================
 // READY
 // =========================
 client.once("ready", () => {
-  console.log("Bot online:", client.user.tag);
+  console.log("BOT READY:", client.user.tag);
 });
 
 // =========================
@@ -36,10 +47,22 @@ client.once("ready", () => {
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
 
-  const content = msg.content.trim();
+  const args = msg.content.split(" ");
+  const cmd = args[0];
 
   // REGISTER
-  if (content === "!register") {
+  if (cmd === "!register") {
+
+    const jobMenu = new StringSelectMenuBuilder()
+      .setCustomId("job_select")
+      .setPlaceholder("Select Job")
+      .addOptions(jobs.map(j => ({
+        label: j,
+        value: j
+      })));
+
+    const row = new ActionRowBuilder().addComponents(jobMenu);
+
     const modal = new ModalBuilder()
       .setCustomId("register_modal")
       .setTitle("Register Character");
@@ -49,28 +72,15 @@ client.on("messageCreate", async (msg) => {
       .setLabel("Character Name")
       .setStyle(TextInputStyle.Short);
 
-    const jobMenu = new StringSelectMenuBuilder()
-      .setCustomId("job_select")
-      .setPlaceholder("Select Job")
-      .addOptions([
-        { label: "Knight", value: "Knight" },
-        { label: "Lord Knight", value: "Lord Knight" },
-        { label: "Sniper", value: "Sniper" },
-        { label: "Champion", value: "Champion" },
-        { label: "Wizard", value: "Wizard" },
-        { label: "High Wizard", value: "High Wizard" }
-      ]);
+    const row2 = new ActionRowBuilder().addComponents(charInput);
 
-    const row1 = new ActionRowBuilder().addComponents(charInput);
-
-    await msg.reply({ content: "Use modal in interaction", ephemeral: true });
+    msg.channel.send({ content: "เลือกอาชีพ + กรอกชื่อ (ระบบกำลังพัฒนา flow เต็ม)" });
   }
 
   // GVG POST
-  if (content === "!gvgpost") {
+  if (cmd === "!gvgpost") {
     const embed = new EmbedBuilder()
-      .setTitle("⚔️ GVG CHECK IN")
-      .setDescription("กดปุ่มเพื่อเช็คชื่อ")
+      .setTitle("⚔️ ROOC GVG CHECK IN")
       .setColor(0xd4af37);
 
     const row = new ActionRowBuilder().addComponents(
@@ -79,7 +89,7 @@ client.on("messageCreate", async (msg) => {
       new ButtonBuilder().setCustomId("gvg_absent").setLabel("ขาด").setStyle(ButtonStyle.Danger)
     );
 
-    await msg.channel.send({ embeds: [embed], components: [row] });
+    msg.channel.send({ embeds: [embed], components: [row] });
   }
 });
 
@@ -88,30 +98,29 @@ client.on("messageCreate", async (msg) => {
 // =========================
 client.on("interactionCreate", async (i) => {
 
-  if (i.isButton()) {
+  if (!i.isButton()) return;
 
-    let status = "มา";
-    if (i.customId === "gvg_no") status = "ลา";
-    if (i.customId === "gvg_absent") status = "ขาด";
+  let status = "มา";
+  if (i.customId === "gvg_no") status = "ลา";
+  if (i.customId === "gvg_absent") status = "ขาด";
 
-    await i.deferReply({ ephemeral: true });
+  await i.deferReply({ ephemeral: true });
 
-    const res = await fetch(API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "attendance",
-        discordId: i.user.id,
-        discordName: i.user.username,
-        character: i.user.globalName || i.user.username,
-        status
-      })
-    });
+  const res = await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "attendance",
+      discordId: i.user.id,
+      discordName: i.user.username,
+      character: i.user.username,
+      status
+    })
+  });
 
-    const data = await res.json();
+  const data = await res.json();
 
-    return i.editReply("บันทึกแล้ว: " + data.status);
-  }
+  i.editReply(`บันทึกแล้ว: ${data.status}`);
 });
 
 client.login(TOKEN);
