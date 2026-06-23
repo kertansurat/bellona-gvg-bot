@@ -1,126 +1,127 @@
-const {
-  Client,
-  GatewayIntentBits,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  StringSelectMenuBuilder
-} = require("discord.js");
+const { Client, GatewayIntentBits, Partials } = require("discord.js");
+const express = require("express");
+const fetch = require("node-fetch"); // ต้องเพิ่ม dependency
 
-const TOKEN = process.env.DISCORD_BOT_TOKEN;
-const API = process.env.GOOGLE_SCRIPT_URL;
+// =========================
+// EXPRESS KEEP ALIVE
+// =========================
+const app = express();
+app.get("/", (req, res) => {
+  res.send("BELLONA GVG SYSTEM ONLINE");
+});
 
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Web server running"));
+
+// =========================
+// DISCORD BOT
+// =========================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
+  ],
+  partials: [Partials.Channel]
 });
 
 // =========================
-// ROOC JOB LIST
+// CONFIG
 // =========================
-const jobs = [
-  "Knight","Lord Knight","Crusader","Paladin",
-  "Wizard","High Wizard","Sage","Professor",
-  "Sniper","Clown","Bard",
-  "Champion","High Priest","Monk",
-  "Whitesmith","Creator",
-  "Assassin Cross","Stalker"
-];
+const SHEET_API_URL = process.env.SHEET_API_URL;
+
+// =========================
+// TEMP MEMORY (DISCORD → CHAR)
+// (จะ upgrade เป็น DB ได้ภายหลัง)
+// =========================
+const userMap = new Map();
 
 // =========================
 // READY
 // =========================
 client.once("ready", () => {
-  console.log("BOT READY:", client.user.tag);
+  console.log(`Logged in as ${client.user.tag}`);
 });
 
 // =========================
-// COMMANDS
+// REGISTER CHARACTER NAME
 // =========================
-client.on("messageCreate", async (msg) => {
-  if (msg.author.bot) return;
+// !setname Knight001
+client.on("messageCreate", async (message) => {
+  if (message.author.bot) return;
 
-  const args = msg.content.split(" ");
-  const cmd = args[0];
+  const prefix = "!";
 
-  // REGISTER
-  if (cmd === "!register") {
+  if (!message.content.startsWith(prefix)) return;
 
-    const jobMenu = new StringSelectMenuBuilder()
-      .setCustomId("job_select")
-      .setPlaceholder("Select Job")
-      .addOptions(jobs.map(j => ({
-        label: j,
-        value: j
-      })));
+  const args = message.content.slice(prefix.length).trim().split(" ");
+  const cmd = args.shift().toLowerCase();
 
-    const row = new ActionRowBuilder().addComponents(jobMenu);
+  // =========================
+  // SET CHARACTER NAME
+  // =========================
+  if (cmd === "setname") {
+    const charName = args.join(" ");
 
-    const modal = new ModalBuilder()
-      .setCustomId("register_modal")
-      .setTitle("Register Character");
+    if (!charName) {
+      return message.reply("❌ ใส่ชื่อตัวละคร เช่น !setname Knight001");
+    }
 
-    const charInput = new TextInputBuilder()
-      .setCustomId("char")
-      .setLabel("Character Name")
-      .setStyle(TextInputStyle.Short);
+    userMap.set(message.author.id, charName);
 
-    const row2 = new ActionRowBuilder().addComponents(charInput);
-
-    msg.channel.send({ content: "เลือกอาชีพ + กรอกชื่อ (ระบบกำลังพัฒนา flow เต็ม)" });
+    return message.reply(`✅ บันทึกชื่อแล้ว: ${charName}`);
   }
 
-  // GVG POST
-  if (cmd === "!gvgpost") {
-    const embed = new EmbedBuilder()
-      .setTitle("⚔️ ROOC GVG CHECK IN")
-      .setColor(0xd4af37);
+  // =========================
+  // CHECK IN GVG
+  // =========================
+  if (cmd === "gvg") {
+    const status = args[0]; // มา / ลา / ขาด
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("gvg_yes").setLabel("มา").setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId("gvg_no").setLabel("ลา").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("gvg_absent").setLabel("ขาด").setStyle(ButtonStyle.Danger)
-    );
+    if (!status) {
+      return message.reply("❌ ใช้: !gvg มา | ลา | ขาด");
+    }
 
-    msg.channel.send({ embeds: [embed], components: [row] });
-  }
-});
+    const charName = userMap.get(message.author.id);
 
-// =========================
-// INTERACTIONS
-// =========================
-client.on("interactionCreate", async (i) => {
+    if (!charName) {
+      return message.reply("❌ กรุณาตั้งชื่อก่อน: !setname <ชื่อ>");
+    }
 
-  if (!i.isButton()) return;
-
-  let status = "มา";
-  if (i.customId === "gvg_no") status = "ลา";
-  if (i.customId === "gvg_absent") status = "ขาด";
-
-  await i.deferReply({ ephemeral: true });
-
-  const res = await fetch(API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      action: "attendance",
-      discordId: i.user.id,
-      discordName: i.user.username,
-      character: i.user.username,
+    const payload = {
+      charName,
       status
-    })
-  });
+    };
 
-  const data = await res.json();
+    try {
+      const res = await fetch(SHEET_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
 
-  i.editReply(`บันทึกแล้ว: ${data.status}`);
+      const data = await res.json();
+
+      if (data.status === "success") {
+        return message.reply(`⚔️ บันทึก GVG แล้ว: ${charName} → ${status}`);
+      } else {
+        return message.reply("❌ เกิดข้อผิดพลาด");
+      }
+    } catch (err) {
+      return message.reply("❌ API ไม่ตอบสนอง");
+    }
+  }
+
+  // =========================
+  // STATUS CHECK
+  // =========================
+  if (cmd === "status") {
+    return message.reply("⚔️ BELLONA GVG SYSTEM ONLINE");
+  }
 });
 
-client.login(TOKEN);
+// =========================
+// LOGIN
+// =========================
+client.login(process.env.DISCORD_TOKEN);
