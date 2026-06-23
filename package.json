@@ -1,18 +1,18 @@
 {
-  "name": "bellona-gvg-bot",
-  "version": "1.0.0",
-  "description": "Discord GVG Bot for BELLONA Guild",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "discord.js": "^14.15.3",
-    "express": "^4.19.2"
-  },
-  "engines": {
-    "node": ">=16.9.0"
-  },
-  "author": "BELLONA",
-  "license": "ISC"
+"name": "bellona-gvg-bot",
+"version": "1.0.1",
+"description": "Discord GVG Bot for BELLONA Guild",
+"main": "index.js",
+"scripts": {
+"start": "node index.js"
+},
+"dependencies": {
+"discord.js": "^14.15.3",
+"express": "^4.19.2"
+},
+"engines": {
+"node": "20.x"
+},
+"author": "BELLONA",
+"license": "ISC"
 }
